@@ -1,0 +1,112 @@
+<script>
+
+let dataset = [];
+let chartMode = "candlestick";
+
+// LOAD DATA
+async function loadData() {
+    try {
+        const res = await fetch("GoldUSD.csv");
+        const text = await res.text();
+
+        const rows = text.split("\n").slice(1);
+
+        dataset = rows
+            .filter(row => row.trim() !== "")
+            .map(r => {
+                let c = r.split(",");
+
+                // FIX DATE FORMAT (dd-mm-yy → yyyy-mm-dd)
+                let parts = c[0].split("-");
+                let formattedDate = new Date(`20${parts[2]}-${parts[1]}-${parts[0]}`);
+
+                return {
+                    date: formattedDate,
+                    open: parseFloat(c[1]),
+                    high: parseFloat(c[2]),
+                    low: parseFloat(c[3]),
+                    close: parseFloat(c[4]),
+                    volume: parseFloat(c[5])
+                };
+            });
+
+        console.log("Data Loaded:", dataset.length);
+
+        calculateMetrics();
+        drawCharts();
+
+    } catch (err) {
+        console.error("Error loading CSV:", err);
+        alert("CSV file not found or not loading. Please check file location.");
+    }
+}
+
+// KPI
+function calculateMetrics() {
+    let close = dataset.map(d=>d.close);
+
+    let returns = close.map((d,i)=> i>0 ? (d-close[i-1])/close[i-1] : 0);
+
+    let avg = returns.reduce((a,b)=>a+b,0)/returns.length;
+
+    let vol = Math.sqrt(
+        returns.map(x=>Math.pow(x-avg,2)).reduce((a,b)=>a+b)/returns.length
+    );
+
+    document.getElementById("price").innerText = "$" + close.at(-1).toFixed(2);
+    document.getElementById("return").innerText = (avg*100).toFixed(2)+"%";
+    document.getElementById("volatility").innerText = vol.toFixed(4);
+}
+
+// DRAW
+function drawCharts() {
+
+    if(dataset.length === 0) return;
+
+    let dates = dataset.map(d=>d.date);
+
+    if(chartMode === "candlestick") {
+        Plotly.newPlot("chart", [{
+            x: dates,
+            open: dataset.map(d=>d.open),
+            high: dataset.map(d=>d.high),
+            low: dataset.map(d=>d.low),
+            close: dataset.map(d=>d.close),
+            type: 'candlestick'
+        }], {paper_bgcolor:"#111827", plot_bgcolor:"#111827"});
+    } else {
+        Plotly.newPlot("chart", [{
+            x: dates,
+            y: dataset.map(d=>d.close),
+            type: 'scatter'
+        }], {paper_bgcolor:"#111827", plot_bgcolor:"#111827"});
+    }
+
+    let close = dataset.map(d=>d.close);
+    let returns = close.map((d,i)=> i>0 ? (d-close[i-1])/close[i-1] : 0);
+
+    Plotly.newPlot("volChart", [{
+        x: dates,
+        y: returns,
+        type: 'scatter'
+    }], {paper_bgcolor:"#111827", plot_bgcolor:"#111827"});
+
+    let regime = returns.map(r => r > 0.02 ? 2 : r < -0.02 ? 1 : 0);
+
+    Plotly.newPlot("regimeChart", [{
+        x: dates,
+        y: regime,
+        mode: 'markers'
+    }], {paper_bgcolor:"#111827", plot_bgcolor:"#111827"});
+}
+
+// TOGGLE
+function toggleChart() {
+    chartMode = chartMode === "candlestick" ? "line" : "candlestick";
+    drawCharts();
+}
+
+// INIT
+loadData();
+
+</script>
