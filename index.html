@@ -6,7 +6,7 @@ let chartMode = "candlestick";
 // LOAD DATA
 async function loadData() {
     try {
-        const res = await fetch("GoldUSD.csv");
+        const res = await fetch("/data/GoldUSD.csv");
         const text = await res.text();
 
         const rows = text.split("\n").slice(1);
